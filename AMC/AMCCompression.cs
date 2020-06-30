@@ -17,38 +17,38 @@ WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 using System;
 using System.Collections.Generic;
 using System.Text;
-using System.Linq;
 
 namespace AMC {
     public class AMCCompression {
 
         string key = "";
+        Encoding encoding = Encoding.UTF8;
 
-        Dictionary<string, string>[] encodeGroups = new Dictionary<string, string>[] {
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>()
+        Dictionary<int, string>[] encodeGroups = new Dictionary<int, string>[] {
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>(),
+            new Dictionary<int, string>()
         };
 
-        Dictionary<string, string>[] decodeGroups = new Dictionary<string, string>[] {
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
-            new Dictionary<string, string>(),
+        Dictionary<string, int>[] decodeGroups = new Dictionary<string, int>[] {
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
+            new Dictionary<string, int>(),
         };
 
-        Dictionary<char, int> charToGroup = new Dictionary<char, int>();
+        Dictionary<byte, int> byteToGroup = new Dictionary<byte, int>();
 
         /// <summary>
         /// Creates an AMCCompresion class
@@ -64,21 +64,23 @@ namespace AMC {
         /// <param name="decodedData">String for compression and encoding</param>
         /// <returns>Returns a compressed and encoded ASCII string</returns>
         public string Encode(string decodedData) {
+            byte[] b = encoding.GetBytes(decodedData);
+
             string bin = "";
             int lastGroup = 0;
 
-            for(int i = 0; i < decodedData.Length; i++) {
-                int group = charToGroup[decodedData[i]];
+            for(int i = 0; i < b.Length; i++) {
+                int group = byteToGroup[b[i]];
 
                 if(group != lastGroup) {
                     bin += GroupChangePath(lastGroup, group);
                     lastGroup = group;
                 }
 
-                bin += encodeGroups[lastGroup][decodedData[i].ToString()];
+                bin += encodeGroups[lastGroup][b[i]];
             }
 
-            string asciiBin = AsciiToBin(decodedData);
+            string asciiBin = ByteToBin(decodedData);
             if(asciiBin.Length > bin.Length)
                 bin = "0" + bin;
             else
@@ -87,7 +89,7 @@ namespace AMC {
             while(bin.Length % 8 != 0)
                 bin += "1";
 
-            return BinToAscii(bin);
+            return BinToByte(bin);
         }
 
         /// <summary>
@@ -96,31 +98,30 @@ namespace AMC {
         /// <param name="encodedData">String for decompression and decoding</param>
         /// <returns>Returns a decompressed and decoded string</returns>
         public string Decode(string encodedData) {
-            string allBin = AsciiToBin(encodedData);
+            string allBin = ByteToBin(encodedData);
             string bin = allBin.Substring(1);
 
-            string result = "";
-
             if(allBin.Substring(0, 1) == "0") {
+                List<byte> result = new List<byte>();
                 int group = 0;
 
                 for(int i = 4; i < bin.Length; i += 5) {
                     string localBin = bin[i - 4].ToString() + bin[i - 3] + bin[i - 2] + bin[i - 1] + bin[i];
-                    string element = decodeGroups[group][localBin];
+                    int element = decodeGroups[group][localBin];
 
-                    if(element.Length > 1)
-                        group = int.Parse(element.Substring(1, 1));
+                    if(element >= 1000)
+                        group = element - 1000;
                     else
-                        result += element;
+                        result.Add((byte)element);
                 }
-            } else {
-                result = BinToAscii(bin);
-            }
 
-            return result;
+                return encoding.GetString(result.ToArray());
+            } else {
+                return BinToByte(bin);
+            }
         }
 
-        string AsciiToBin(string ascii) {
+        string ByteToBin(string ascii) {
             string result = "";
 
             for(int i = 0; i < ascii.Length; i++) {
@@ -147,7 +148,7 @@ namespace AMC {
             return result;
         }
 
-        string BinToAscii(string bin) {
+        string BinToByte(string bin) {
             string result = "";
 
             for(int i = 8; i <= bin.Length; i += 8)
@@ -163,28 +164,41 @@ namespace AMC {
             switch(GroupDifference(oldGroup, newGroup)) {
                 case 1:
                 case -1:
-                    return encodeGroups[oldGroup]["-" + newGroup];
+                case 8:
+                case -8:
+                    return encodeGroups[oldGroup][1000 + newGroup];
                 case -2:
                     transitionGroup = MaxGroup(oldGroup + 1);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + newGroup];
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + newGroup];
                 case 2:
                     transitionGroup = MaxGroup(oldGroup - 1);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + newGroup];
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + newGroup];
                 case -3:
                     transitionGroup = MaxGroup(oldGroup + 4);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + newGroup];
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + newGroup];
                 case 3:
+                case 7:
                     transitionGroup = MaxGroup(oldGroup - 1);
                     transitionGroup2 = MaxGroup(transitionGroup - 1);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + transitionGroup2] + encodeGroups[transitionGroup2]["-" + newGroup];
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + transitionGroup2] + encodeGroups[transitionGroup2][1000 + newGroup];
                 case -4:
-                    return encodeGroups[oldGroup]["-" + newGroup];
-                case 4:
-                    transitionGroup = MaxGroup(oldGroup + 4);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + newGroup];
                 case 5:
+                    return encodeGroups[oldGroup][1000 + newGroup];
+                case 4:
+                case 6:
                     transitionGroup = MaxGroup(oldGroup + 4);
-                    return encodeGroups[oldGroup]["-" + transitionGroup] + encodeGroups[transitionGroup]["-" + newGroup];
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + newGroup];
+                case -5:
+                    transitionGroup = MaxGroup(oldGroup + 4);
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + newGroup];
+                case -6:
+                    transitionGroup = MaxGroup(oldGroup + 4);
+                    transitionGroup2 = MaxGroup(transitionGroup + 1);
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + transitionGroup2] + encodeGroups[transitionGroup2][1000 + newGroup];
+                case -7:
+                    transitionGroup = MaxGroup(oldGroup + 1);
+                    transitionGroup2 = MaxGroup(transitionGroup + 1);
+                    return encodeGroups[oldGroup][1000 + transitionGroup] + encodeGroups[transitionGroup][1000 + transitionGroup2] + encodeGroups[transitionGroup2][1000 + newGroup];
             }
 
             throw new Exception("Unexcepted case!");
@@ -203,9 +217,9 @@ namespace AMC {
                 encodeGroups[i].Clear();
                 decodeGroups[i].Clear();
             }
-            charToGroup.Clear();
+            byteToGroup.Clear();
 
-            string asciiKey = Encoding.ASCII.GetString(Convert.FromBase64String(key));
+            string asciiKey = encoding.GetString(Convert.FromBase64String(key));
 
             string safeKey = "";
             for(int i = 0; i < asciiKey.Length; i++) {
@@ -223,11 +237,11 @@ namespace AMC {
 
                     string bin = UIntToLenghtFiveBinary((uint)y);
 
-                    string element = safeKey[i].ToString();
+                    byte element = (byte)safeKey[i];
                     encodeGroups[x].Add(element, bin);
                     decodeGroups[x].Add(bin, element);
 
-                    charToGroup.Add(safeKey[i], x);
+                    byteToGroup.Add(element, x);
                 }
 
                 if(safeKey.Length <= x * 29 + 29)
@@ -235,18 +249,17 @@ namespace AMC {
             }
 
             for(int b = 0; b < 256; b++) {
-                if(charToGroup.ContainsKey((char)b))
+                if(byteToGroup.ContainsKey((byte)b))
                     continue;
                 
                 for(int x = 0; x < encodeGroups.Length; x++) {
                     if(encodeGroups[x].Count < 29) {
                         string bin = UIntToLenghtFiveBinary((uint)encodeGroups[x].Count);
 
-                        string element = ((char)b).ToString();
-                        encodeGroups[x].Add(element, bin);
-                        decodeGroups[x].Add(bin, element);
+                        encodeGroups[x].Add(b, bin);
+                        decodeGroups[x].Add(bin, b);
                         
-                        charToGroup.Add((char)b, x);
+                        byteToGroup.Add((byte)b, x);
 
                         break;
                     }
@@ -254,17 +267,17 @@ namespace AMC {
             }
 
             for(int i = 0; i < encodeGroups.Length; i++) {
-                string g = "-" + MaxGroup(i - 1);
+                int g = 1000 + MaxGroup(i - 1);
                 string bin = UIntToLenghtFiveBinary(29);
                 encodeGroups[i].Add(g, bin);
                 decodeGroups[i].Add(bin, g);
 
-                g = "-" + MaxGroup(i + 1);
+                g = 1000 + MaxGroup(i + 1);
                 bin = UIntToLenghtFiveBinary(30);
                 encodeGroups[i].Add(g, bin);
                 decodeGroups[i].Add(bin, g);
 
-                g = "-" + MaxGroup(i + 4);
+                g = 1000 + MaxGroup(i + 4);
                 bin = UIntToLenghtFiveBinary(31);
                 encodeGroups[i].Add(g, bin);
                 decodeGroups[i].Add(bin, g);
