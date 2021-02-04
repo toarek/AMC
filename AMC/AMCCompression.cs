@@ -2,16 +2,6 @@
 Module Name:  AMC.Compression
 Project:      AMC
 Copyright (c) Arkadiusz Tołwiński.
-
-This file is responsible for encoding and decoding data using the AMC library.
-
-This source is subject to the GNU General Public License v3.0.
-See https://github.com/toarek/AMC/blob/master/LICENSE.
-All other rights reserved.
-
-THIS CODE AND INFORMATION IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND, 
-EITHER EXPRESSED OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE IMPLIED 
-WARRANTIES OF MERCHANTABILITY AND/OR FITNESS FOR A PARTICULAR PURPOSE.
 \***************************************************************************/
 
 using System;
